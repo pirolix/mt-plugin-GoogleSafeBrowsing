@@ -1,0 +1,23 @@
+<mtapp:setting
+    id="apikey"
+    label="<__trans phrase="API Key">">
+<input type="text" name="apikey" size="40" value="<TMPL_VAR NAME=APIKEY ESCAPE=HTML>" /><br />
+<a href="http://code.google.com/intl/ja/apis/safebrowsing/key_signup.html">Sign Up for the Safe Browsing API</a>
+</mtapp:setting>
+
+<mtapp:setting
+    id="status"
+    label="<__trans phrase="Status">">
+black_hash:<TMPL_VAR NAME=BLACK_HASH_MAJOR ESCAPE=HTML>:<TMPL_VAR NAME=BLACK_HASH_MINOR ESCAPE=HTML>
+(<TMPL_VAR NAME=BLACK_HASH_NUM ESCAPE=HTML> hashes)<br />
+malware_hash:<TMPL_VAR NAME=MALWARE_HASH_MAJOR ESCAPE=HTML>:<TMPL_VAR NAME=MALWARE_HASH_MINOR ESCAPE=HTML>
+(<TMPL_VAR NAME=MALWARE_HASH_NUM ESCAPE=HTML> hashes)<br />
+</mtapp:setting>
+
+<input type="hidden" name="black_hash_major" value="<TMPL_VAR NAME=BLACK_HASH_MAJOR ESCAPE=HTML>" />
+<input type="hidden" name="black_hash_minor" value="<TMPL_VAR NAME=BLACK_HASH_MINOR ESCAPE=HTML>" />
+<input type="hidden" name="black_hash_num" value="<TMPL_VAR NAME=BLACK_HASH_NUM ESCAPE=HTML>" />
+<input type="hidden" name="malware_hash_major" value="<TMPL_VAR NAME=MALWARE_HASH_MAJOR ESCAPE=HTML>" />
+<input type="hidden" name="malware_hash_minor" value="<TMPL_VAR NAME=MALWARE_HASH_MINOR ESCAPE=HTML>" />
+<input type="hidden" name="malware_hash_num" value="<TMPL_VAR NAME=MALWARE_HASH_NUM ESCAPE=HTML>" />
+<input type="hidden" name="last_updated" value="<TMPL_VAR NAME=LAST_UPDATED ESCAPE=HTML>" />
