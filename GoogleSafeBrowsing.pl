@@ -103,7 +103,7 @@ sub _task_update_table {
 
     my $model;
     my ($black_hash_major, $black_hash_minor);
-    my ($malware_hash_major;, $malware_hash_minor);
+    my ($malware_hash_major, $malware_hash_minor);
     my $count_add = 0;
     my $count_remove = 0;
     foreach (split /[\r\n]/, $buffer) {
