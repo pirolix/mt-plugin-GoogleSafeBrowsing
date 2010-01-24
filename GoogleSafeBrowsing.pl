@@ -1,4 +1,5 @@
 package MT::Plugin::OMV::GoogleSafeBrowsing;
+$|++;
 
 use strict;
 use MT 4;
@@ -13,11 +14,15 @@ use constant URL_SAFE       => 0;
 use constant URL_BLACK      => 1;
 use constant URL_MALWARE    => 2;
 
+use constant VERSION_MAJOR  => 1;
+use constant VERSION_MINOR  => -1;
+
+use constant JUNK_WEIGHT    => -5;
+
 use vars qw( $MYNAME $VERSION $SCHEMA_VERSION );
 $MYNAME = 'GoogleSafeBrowsing';
-$VERSION = '0.03';
+$VERSION = '0.04';
 $SCHEMA_VERSION = '0.0102';
-
 
 use base qw( MT::Plugin );
 my $plugin = __PACKAGE__->new({
@@ -28,20 +33,20 @@ my $plugin = __PACKAGE__->new({
         schema_version => $SCHEMA_VERSION,
         author_name => 'Open MagicVox.net',
         author_link => 'http://www.magicvox.net/',
-#        doc_link => 'http://www.magicvox.net/',
+        doc_link => 'http://www.magicvox.net/',
         description => <<HTMLHEREDOC,
 <__trans phrase="Check whether URL is not malwared or black-listed by Google Safe Browsing API.">
 HTMLHEREDOC
         system_config_template => 'tmpl/config.tmpl',
         settings => new MT::PluginSettings([
             ['apikey', { Default => undef, Scope => 'system' }],
-            ['black_hash_major', { Default => 1, Scope => 'system' }],
-            ['black_hash_minor', { Default => -1, Scope => 'system' }],
-            ['black_hash_num', { Default => 0, Scope => 'system' }],
-            ['malware_hash_major', { Default => 1, Scope => 'system' }],
-            ['malware_hash_minor', { Default => -1, Scope => 'system' }],
-            ['malware_hash_num', { Default => 0, Scope => 'system' }],
             ['last_updated', { Default => 0, Scope => 'system' }],
+            ['black_hash_num', { Default => 0, Scope => 'system' }],
+            ['malware_hash_num', { Default => 0, Scope => 'system' }],
+            ['black_hash_major', { Default => VERSION_MAJOR, Scope => 'system' }],
+            ['black_hash_minor', { Default => VERSION_MINOR, Scope => 'system' }],
+            ['malware_hash_major', { Default => VERSION_MAJOR, Scope => 'system' }],
+            ['malware_hash_minor', { Default => VERSION_MINOR, Scope => 'system' }],
         ]),
 });
 MT->add_plugin( $plugin );
@@ -59,7 +64,7 @@ sub init_registry {
         tasks => {
             $MYNAME => {
                 label => 'Update malware/black hash table',
-                frequency => 60 * 15,
+                frequency => 1,#60 * 60,
                 code => \&_task_update_table,
             },
         },
@@ -83,11 +88,11 @@ sub _task_update_table {
         or return; # not yet configured, do nothing.
     my $version = sprintf '%s:%d:%d,%s:%d:%d',
             'goog-black-hash',
-            &instance->get_config_value ('black_hash_major'),
-            &instance->get_config_value ('black_hash_minor'),
+            (&instance->get_config_value ('black_hash_major') || VERSION_MAJOR),
+            (&instance->get_config_value ('black_hash_minor') || VERSION_MINOR),
             'goog-malware-hash',
-            &instance->get_config_value ('malware_hash_major'),
-            &instance->get_config_value ('malware_hash_minor');
+            (&instance->get_config_value ('malware_hash_major') || VERSION_MAJOR),
+            (&instance->get_config_value ('malware_hash_minor') || VERSION_MINOR);
     my %param = (
         client => 'api', apikey => $apikey, version => $version,
     );
@@ -102,17 +107,18 @@ sub _task_update_table {
         or return; # error
 
     my $model;
+    my ($count, $count_add, $count_remove);
     my ($black_hash_major, $black_hash_minor);
     my ($malware_hash_major, $malware_hash_minor);
-    my $count_add = 0;
-    my $count_remove = 0;
     foreach (split /[\r\n]/, $buffer) {
+        $count++;
+        print STDERR "$count $_\n";
         if ($model && /^([+-])([0-9a-fA-F]{32})/) {
+#next unless 241500 < $count;# for lot records registing
             my $key = lc $2;
             if ($1 eq '+') {
-                my $obj = $model->load ({ key => $key });
-                unless ($obj) {
-                    $obj = $model->new;
+                unless ($model->count ({ key => $key })) {
+                    my $obj = $model->new;
                     $obj->key ($key);
                     $obj->save;
                 }
@@ -140,11 +146,9 @@ sub _task_update_table {
             level => MT::Log::INFO(),
             message => MT->translate ("$MYNAME: Add [_1] hashes, remove [_2] hashes.", $count_add, $count_remove),
         });
-
         &instance->set_config_value ('last_updated', time);
         &instance->set_config_value ('black_hash_num', MT::GoogleSafeBrowsing::BlackHash->count());
         &instance->set_config_value ('malware_hash_num', MT::GoogleSafeBrowsing::MalwareHash->count());
-
         &instance->set_config_value ('black_hash_major', $black_hash_major);
         &instance->set_config_value ('black_hash_minor', $black_hash_minor);
         &instance->set_config_value ('malware_hash_major', $malware_hash_major);
@@ -163,10 +167,10 @@ sub _hdlr_filter {
     foreach (@urls) {
         my $ret = _check_url ($_);
         if ($ret == URL_BLACK) {
-            return (-5, &instance->translate ('Object contains the [_1] URL', 'black-listed'));
+            return (JUNK_WEIGHT, &instance->translate ('Object contains the [_1] URL', 'black-listed'));
         }
         elsif ($ret == URL_MALWARE) {
-            return (-5, &instance->translate ('Object contains the [_1] URL', 'malware-listed'));
+            return (JUNK_WEIGHT, &instance->translate ('Object contains the [_1] URL', 'malware-listed'));
         }
     }
     return (ABSTAIN);
@@ -194,7 +198,7 @@ sub _get_urls {
 
     my @urls;
     while ($text =~ s!(?:^|\s)(https?://\S+)!!s) {
-        push @urls, $;
+        push @urls, $1;
     }
     @urls;
 }
