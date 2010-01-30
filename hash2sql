@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+use strict;
+use LWP::UserAgent;
+
+my $apikey = 'ABQIAAAAo6YeRQWUfK9HduTIVCM57hS1iPZx01QoMyLcojqaJaNv-wwC8w';
+my $version = sprintf '%s:%d:%d,%s:%d:%d',
+        'goog-black-hash', 1,-1, 'goog-malware-hash', 1,-1;
+my %param = (
+    client => 'api', apikey => $apikey, version => $version,
+);
+my $url = 'http://sb.google.com/safebrowsing/update?'.
+        join '&', map { $_. '='. $param{$_} } keys %param;
+my $ua = LWP::UserAgent->new
+    or return; # error
+my $res = $ua->get ($url)
+    or return; # error
+my $buffer = $res->content
+    or return; # error
+
+my $model;
+foreach (split /[\r\n]/, $buffer) {
+    print STDERR "$_\n";
+    if ($model && /^([+-])([0-9a-fA-F]{32})/) {
+        my $key = lc $2;
+        if ($1 eq '+') {
+            if (open (my $fh, ">>all_hash.sql")) {
+                printf $fh "INSERT INTO `mt_%s` (`%s_key`) VALUES ('%s');\n",
+                    $model, $model, $key;
+                close $fh;
+            }
+        }
+    }
+    elsif (/^\[goog-black-hash (\d+)\.(\d+)/) {
+        $model = 'gsb_black_hash';
+    }
+    elsif (/^\[goog-malware-hash (\d+)\.(\d+)/) {
+        $model = 'gsb_malware_hash';
+    }
+}

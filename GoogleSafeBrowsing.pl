@@ -107,14 +107,11 @@ sub _task_update_table {
         or return; # error
 
     my $model;
-    my ($count, $count_add, $count_remove);
-    my ($black_hash_major, $black_hash_minor);
-    my ($malware_hash_major, $malware_hash_minor);
+    my ($count, $count_add, $count_remove) = (0,0,0);
     foreach (split /[\r\n]/, $buffer) {
         $count++;
         print STDERR "$count $_\n";
         if ($model && /^([+-])([0-9a-fA-F]{32})/) {
-#next unless 241500 < $count;# for lot records registing
             my $key = lc $2;
             if ($1 eq '+') {
                 unless ($model->count ({ key => $key })) {
@@ -131,11 +128,13 @@ sub _task_update_table {
         }
         elsif (/^\[goog-black-hash (\d+)\.(\d+)/) {
             $model = 'MT::GoogleSafeBrowsing::BlackHash';
-            ($black_hash_major, $black_hash_minor) = ($1, $2);
+            &instance->set_config_value ('black_hash_major', $1);
+            &instance->set_config_value ('black_hash_minor', $2);
         }
         elsif (/^\[goog-malware-hash (\d+)\.(\d+)/) {
             $model = 'MT::GoogleSafeBrowsing::MalwareHash';
-            ($malware_hash_major, $malware_hash_minor) = ($1, $2);
+            &instance->set_config_value ('malware_hash_major', $1);
+            &instance->set_config_value ('malware_hash_minor', $2);
         }
         sleep 0;
     }
@@ -149,10 +148,6 @@ sub _task_update_table {
         &instance->set_config_value ('last_updated', time);
         &instance->set_config_value ('black_hash_num', MT::GoogleSafeBrowsing::BlackHash->count());
         &instance->set_config_value ('malware_hash_num', MT::GoogleSafeBrowsing::MalwareHash->count());
-        &instance->set_config_value ('black_hash_major', $black_hash_major);
-        &instance->set_config_value ('black_hash_minor', $black_hash_minor);
-        &instance->set_config_value ('malware_hash_major', $malware_hash_major);
-        &instance->set_config_value ('malware_hash_minor', $malware_hash_minor);
     }
 }
 
